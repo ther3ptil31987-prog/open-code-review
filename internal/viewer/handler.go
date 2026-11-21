@@ -60,6 +60,7 @@ func handleSessions(w http.ResponseWriter, r *http.Request, root, repo string) {
 }
 
 type sessionPageData struct {
+	Analysis    *analysisPage
 	EncodedRepo string
 	RepoName    string
 	Session     *ViewSession
@@ -74,22 +75,27 @@ type sessionPageData struct {
 	InlineJS  template.JS
 }
 
+func sessionRepoName(cwd, encodedRepo string) string {
+	if name := filepath.Base(cwd); name != "." && name != "" {
+		return name
+	}
+	return encodedRepo
+}
+
 func handleSession(w http.ResponseWriter, r *http.Request, root, repo, sessionID string) {
+	if r.URL.Query().Get("tab") == "analysis" {
+		handleAnalysis(w, r, root, repo, sessionID)
+		return
+	}
 	vs, err := LoadSession(root, repo, sessionID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load session: %v", err), http.StatusNotFound)
 		return
 	}
 
-	// Derive a display name
-	name := filepath.Base(vs.Summary.CWD)
-	if name == "." || name == "" {
-		name = repo
-	}
-
 	renderTemplate(w, "session.html", sessionPageData{
 		EncodedRepo: repo,
-		RepoName:    name,
+		RepoName:    sessionRepoName(vs.Summary.CWD, repo),
 		Session:     vs,
 	})
 }
